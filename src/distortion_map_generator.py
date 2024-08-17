@@ -44,6 +44,7 @@ def distortion_map(file): #run to create the distortion map
     
     shift_x_new=f_x(i_new, i_new)/0.012 #dividing by pixel size to get shift in pixels
     shift_y_new= np.transpose(f_y(i_new, i_new)/0.012) #dividing by pixel size to get shift in pixels
+    
     #Taking transpose to reverse the interchange of rows and cols.
     return(shift_x_new, shift_y_new)
 
@@ -64,14 +65,13 @@ def checkerboard(n): #Generates pixel level checkerboard. Not being used here.
 if __name__=='__main__':
     project_path= os.path.expanduser('~/Dropbox/Janmejoy_SUIT_Dropbox/distortion/distortion_correction_project/')
     image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T23.13.56.502_0971NB04.fits')
-    image_data= fits.open(image)[0].data
+    image_data= np.flipud(np.fliplr(fits.open(image)[0].data))
     
     dist_x, dist_y= distortion_map(os.path.join(project_path, 'data/external/distortion_100x100.txt')) 
     #gives x and y distortion map. Enter file path.
     #pattern= test_pattern(dist_x.shape[0])
     corrected= np.zeros(shape=(dist_x.shape)) #making a blank matrix to put the distortion corrected values.
     
-
     #Shifting the pixels along x on pattern: Based on dist_x
     for i in range(dist_x.shape[0]):
         for j in range(dist_x.shape[0]):
