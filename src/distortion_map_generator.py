@@ -39,12 +39,13 @@ def distortion_map(file): #run to create the distortion map
     f_x= interp2d(I,J,shift_x, kind='cubic')
     f_y= interp2d(J,I, shift_y, kind='cubic') #interchanging the rows and cols to avoid divergent vals. 
     
-    i_new= np.linspace(0, 100, 2837)
+    #i_new= np.linspace(0, 100, 2837)
+    i_new= np.linspace(0, 144, 4096)
     
     shift_x_new=f_x(i_new, i_new)/0.012 #dividing by pixel size to get shift in pixels
     shift_y_new= np.transpose(f_y(i_new, i_new)/0.012) #dividing by pixel size to get shift in pixels
     #Taking transpose to reverse the interchange of rows and cols.
-    return(shift_x_new[75:-75, 75:-75], shift_y_new[75:-75, 75:-75])
+    return(shift_x_new, shift_y_new)
 
 def test_pattern(size):
     zeros= np.zeros(shape=(size, size))
@@ -67,8 +68,9 @@ if __name__=='__main__':
     
     dist_x, dist_y= distortion_map(os.path.join(project_path, 'data/external/distortion_100x100.txt')) 
     #gives x and y distortion map. Enter file path.
-    pattern= test_pattern(dist_x.shape[0])
+    #pattern= test_pattern(dist_x.shape[0])
     corrected= np.zeros(shape=(dist_x.shape)) #making a blank matrix to put the distortion corrected values.
+    
 
     #Shifting the pixels along x on pattern: Based on dist_x
     for i in range(dist_x.shape[0]):
@@ -79,9 +81,9 @@ if __name__=='__main__':
 
     plt.figure()
     plt.subplot(1,2,1)
-    plt.imshow(pattern)
+    plt.imshow(corrected-image_data, origin='lower')
     plt.title("Test Pattern")
     plt.subplot(1,2,2)
-    plt.imshow(corrected)
+    plt.imshow(corrected, origin='lower')
     plt.title("Distortion corrected Test Pattern")
     plt.show()
