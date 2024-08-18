@@ -2,6 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun Aug 18 11:10:45 2024
+2024-08-18:
+-Used to generate distortion profile of SUIT for 2k and 4k images and to 
+rectify the distortion.
+-This finds the distortion profile from image center to right bottom image
+corner and rotates this distortion profile about image center to get the
+radial profile of distortion.
+-A better method would be using 2D extrapolation and fitting to make the
+distortion profile.
+-As of now, this works well with SUIT images at VELC aligned position.
 
 @author: janmejoyarch
 """
@@ -10,6 +19,43 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from astropy.io import fits
+
+def make_linear_grad(distortion_profile, imsize):
+    '''
+    Gradient of distortion along the diagonal of the image.
+    To extrapolate the distortion pattern from the zemax simulated data.
+    For pixels ranging from frame center to frame corner. Zemax simulates
+    for diagonal field angles of 0.39 degrees with a sparse sampling of 101
+    points on X and Y. 0.275 deg on either size.
+    This model is extrapolated to the full frame size.
+    
+    The radial pattern of distortion along X and Y axes from frame center to
+    bottom right corner (VELC aligned pos) extracted as a 1D array.
+    
+    Parameters
+    ----------
+    distortion_profile : 2D array of distortion profile from ZEMAX data.
+    To be input separately for X and Y axes.
+
+    Returns
+    -------
+    1D array- high resolution extrapolated data.
+
+    '''
+    #cubic fit along the diagonal of the distortion profile for an axis
+    a,b,c,d= np.polyfit(np.arange(101), np.diagonal(distortion_profile), deg=3)
+    
+    diag_len= round(imsize)
+    #The diagonal extrapolation has to be done for diagonal pixels beyond the
+    #0.39 deg radius. So the range is extended to 1.414*101= 144 points
+    #from -22 to 122 on either side of the diagonal.
+    x_new= np.linspace(-22, 122, diag_len)
+    #new distortion values from 3rd order fitted polynomial.
+    y_new= a*x_new**3+b*x_new**2+c*x_new+d
+    #half diagonal of the distortion profile. From center to frame 
+    #bottom right corner
+    half_y_new= y_new[round(diag_len/2):]
+    return(half_y_new)
 
 def make_radial_grad(gradient_1d, imsize):
     '''
@@ -35,105 +81,67 @@ def make_radial_grad(gradient_1d, imsize):
     radial_gradient = gradient_1d[distance_normalized.astype(int)]
     return(radial_gradient)
 
-def make_linear_grad(distortion_profile, imsize):
-    '''
-    To extrapolate the distortion pattern from the zemax simulated data.
-    For pixels ranging from frame center to frame corner. Zemax simulates
-    for diagonal field angles of 0.39 degrees with a sparse sampling of 101
-    points on X and Y. 0.275 deg on either size.
-    This model is extrapolated to the full frame size.
+
+if __name__=='__main__':
+    project_path= os.path.expanduser('~/Dropbox/Janmejoy_SUIT_Dropbox/distortion/distortion_correction_project/')
+    #image to be corrected
+    image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T22.58.07.105_0972NB03.fits')
+    hdu= fits.open(image)[0]
+    imsize= hdu.header['NAXIS1']
+    if imsize==4096:
+        bleed_size=300  # +- 300 px bleed size around the image
+        px= 0.012 #pixels are 12 micron for 4k images
+    elif imsize==2048:
+        bleed_size=150  # +- 150 px bleed size around the image
+        px=0.024 ##pixels are 24 micron for 2k images
+    else:
+        print("Invalid image size:", imsize)
+    #suncenter values
+    crpix1, crpix2, rsun= hdu.header['CRPIX1'], hdu.header['CRPIX2'], hdu.header['R_SUN']
+    image_data= np.flip((hdu.data), axis=(0,1))
     
-    The radial pattern of distortion along X and Y axes from frame center to
-    bottom right corner (VELC aligned pos) extracted as a 1D array.
+    #read ZEMAX distortion profile and convert the table to a 2D array
+    file= os.path.join(project_path, 'data/external/distortion_100x100.txt')
+    index= np.loadtxt(file, skiprows=1, usecols=(0,1))
+    predicted_pos= np.loadtxt(file, skiprows=1, usecols=(5,6))
+    real_pos= np.loadtxt(file, skiprows=1, usecols=(7,8))
+    shift_pos= real_pos-predicted_pos #to be subtracted from real_positions
+    shift_x= np.flip(np.transpose(np.reshape(shift_pos[:,0],(101,101))), axis=(0,1)) #makes gird of shift along x
+    shift_y= np.flip(np.transpose(np.reshape(shift_pos[:,1],(101,101))), axis=(0,1)) #makes gird of shift along y
     
-    Parameters
-    ----------
-    distortion_profile : 2D array of distortion profile from ZEMAX data.
-    To be input separately for X and Y axes.
-
-    Returns
-    -------
-    1D array- high resolution extrapolated data.
-
-    '''
-    #cubic fit along the diagonal of the distortion profile for an axis
-    a,b,c,d= np.polyfit(np.arange(101), np.diagonal(distortion_profile), deg=3)
-    fit_diag= round(imsize*np.sqrt(2))
-    x_new= np.linspace(-22, 122, fit_diag)
-    y_new= a*x_new**3+b*x_new**2+c*x_new+d
-    return(y_new)
-
-project_path= os.path.expanduser('~/Dropbox/Janmejoy_SUIT_Dropbox/distortion/distortion_correction_project/')
-image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T23.15.14.966_0971NB05.fits')
-bleed_size=300 # +- 300 px bleed size around the image
-hdu= fits.open(image)[0]
-imsize= hdu.header['NAXIS1']
-
-crpix1, crpix2, rsun= hdu.header['CRPIX1'], hdu.header['CRPIX2'], hdu.header['R_SUN']
-image_data= np.flip((hdu.data), axis=(0,1))
-
-file= os.path.join(project_path, 'data/external/distortion_100x100.txt')
-index= np.loadtxt(file, skiprows=1, usecols=(0,1))
-predicted_pos= np.loadtxt(file, skiprows=1, usecols=(5,6))
-real_pos= np.loadtxt(file, skiprows=1, usecols=(7,8))
-shift_pos= real_pos-predicted_pos #to be subtracted from real_positions
-
-index_grid_x= np.transpose(np.reshape(index[:,0],(101,101)))
-index_grid_y= np.transpose(np.reshape(index[:,1],(101,101)))
-
-shift_x= np.flip(np.transpose(np.reshape(shift_pos[:,0],(101,101))), axis=(0,1)) #makes gird of shift along x
-shift_y= np.flip(np.transpose(np.reshape(shift_pos[:,1],(101,101))), axis=(0,1)) #makes gird of shift along y
-
-linear_grad_x= make_linear_grad(shift_x, imsize)[2896:]
-linear_grad_y= make_linear_grad(shift_y, imsize)[2896:]
-
-xx,yy= np.meshgrid(np.linspace(-1,1, imsize), np.linspace(-1,1, imsize))
-radial_x = make_radial_grad(linear_grad_x, imsize)*xx  # Example: Linear gradient from 0 to 1
-radial_y = make_radial_grad(linear_grad_y, imsize)*yy  # Example: Linear gradient from 0 to 1
-
-corrected= np.zeros(shape=(imsize+2*bleed_size,imsize+2*bleed_size)) #making a blank matrix to put the distortion corrected values.
-
-for i in range(imsize):
-    for j in range(imsize):
-        xshift=round(radial_x[i,j]/0.012)
-        yshift=round(radial_y[i,j]/0.012)
-        corrected[bleed_size+i+yshift, bleed_size+j+xshift]= image_data[i,j]
-
-plt.figure()
-circle= plt.Circle((crpix1,crpix2), rsun, edgecolor='red', facecolor='none', linewidth=2)
-plt.subplot(1,2,1)
-plt.imshow(np.flip(image_data, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4)
-plt.gca().add_patch(circle)
-#plt.imshow(image_data-corrected[bleed_size:imsize+bleed_size, bleed_size:imsize+bleed_size], origin='lower')
-plt.title("Image")
-circle= plt.Circle((crpix1+bleed_size,crpix2+bleed_size), rsun, edgecolor='red', facecolor='none', linewidth=2)
-plt.subplot(1,2,2)
-plt.imshow(np.flip(corrected, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4)
-plt.gca().add_patch(circle)
-plt.title("Distortion corrected")
-plt.show()
-
-'''
-plt.figure()
-plt.subplot(2,2,1)
-plt.imshow(shift_y)
-plt.subplot(2,2,2)
-plt.imshow(radial_y)
-plt.subplot(2,2,3)
-plt.imshow(shift_x)
-plt.subplot(2,2,4)
-plt.imshow(radial_x)
-
-i= np.arange(101)
-I,J= np.meshgrid(i,i) #Its a blank square of side 100
-
-f_x= interp2d(I,J,shift_x, kind='cubic')
-f_y= interp2d(J,I, shift_y, kind='cubic') #interchanging the rows and cols to avoid divergent vals. 
-
-#i_new= np.linspace(0, 100, 2837)
-i_new= np.linspace(0, 144, 4096)
-
-shift_x_new=f_x(i_new, i_new)/0.012 #dividing by pixel size to get shift in pixels
-shift_y_new= np.transpose(f_y(i_new, i_new)/0.012) #dividing by pixel size to get shift in pixels
-
-'''
+    #make extrapolated linear arrays for x and y distortions from image center
+    #to right bottom diagonal
+    linear_grad_x= make_linear_grad(shift_x, imsize)
+    linear_grad_y= make_linear_grad(shift_y, imsize)
+    
+    # Making radial gradients from linear profiles
+    #The xx and yy help to flip the direction of the distortion along an axis.
+    xx,yy= np.meshgrid(np.linspace(-1,1, imsize), np.linspace(-1,1, imsize))
+    radial_x = make_radial_grad(linear_grad_x, imsize)*xx 
+    radial_y = make_radial_grad(linear_grad_y, imsize)*yy
+    
+    #making a blank matrix to put the distortion corrected values.
+    corrected= np.zeros(shape=(imsize+2*bleed_size,imsize+2*bleed_size)) 
+    #Distortion correction by shifting pixels
+    for i in range(imsize):
+        for j in range(imsize):
+            xshift=round(radial_x[i,j]/px)
+            yshift=round(radial_y[i,j]/px)
+            corrected[bleed_size+i+yshift, bleed_size+j+xshift]= image_data[i,j]
+            #This barrel distorts the image to make the sun circular.
+            #change to -yshift and -xshift for inducing pincushion distortion.
+    
+    #Optional visualization
+    plt.figure()
+    circle= plt.Circle((crpix1,crpix2), rsun, edgecolor='red', facecolor='none', linewidth=2)
+    plt.subplot(1,2,1)
+    plt.imshow(np.flip(image_data, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4)
+    plt.gca().add_patch(circle)
+    #plt.imshow(image_data-corrected[bleed_size:imsize+bleed_size, bleed_size:imsize+bleed_size], origin='lower')
+    plt.title("Image")
+    circle= plt.Circle((crpix1+bleed_size,crpix2+bleed_size), rsun, edgecolor='red', facecolor='none', linewidth=2)
+    plt.subplot(1,2,2)
+    plt.imshow(np.flip(corrected, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4)
+    plt.gca().add_patch(circle)
+    plt.title("Distortion corrected")
+    plt.show()
