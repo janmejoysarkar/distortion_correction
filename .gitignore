@@ -2,4 +2,5 @@ $ cat .gitignore
 data/raw
 data/processed
 data/interim
+data/external/*.fits
 products/*

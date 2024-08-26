@@ -10,28 +10,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from astropy.io import fits
-from datetime import date
-
-def prep_header(filename):
-    header=fits.Header()
-    header['FILENAME']=(filename, "Distortion Correction Matrix")
-    header['VERSION']=('v1.0', 'Version name for the Image')
-    header['MFG_DATE']=(str(date.today()), 'Manufacturing date for the FITS file')
-    header['COMMENT']=("Distortion Correction Matrix")
-    return (header)
 
 def save_fits(array, name):
-    sav= os.path.join(project_path, 'data/external/', name)
-    sav_hdu= fits.PrimaryHDU(array, header=prep_header(name))
+    sav= os.path.join(project_path, 'products/', name)
+    sav_hdu= fits.PrimaryHDU(array, header=HEADER)
     sav_hdu.writeto(sav, overwrite=True)
     
     
     
 project_path= os.path.expanduser('~/Dropbox/Janmejoy_SUIT_Dropbox/distortion/distortion_correction_project/')
 #image to be corrected
-image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T23.15.14.966_0971NB05.fits')
-
+image= os.path.join(project_path, 'data/raw/test.fits')
+SAVE=True
+VISUALIZE=True
 hdu= fits.open(image)[0]
+HEADER= hdu.header
 imsize= hdu.header['NAXIS1']
 if imsize==4096:
     bleed_size=300  # +- 300 px bleed size around the image
@@ -60,19 +53,23 @@ for i in range(imsize):
         #This barrel distorts the image to make the sun circular.
         #change to -yshift and -xshift for inducing pincushion distortion.
 
-#Optional visualization
-plt.figure()
-circle= plt.Circle((crpix1,crpix2), rsun, edgecolor='red', facecolor='none', linewidth=2)
-plt.subplot(1,2,1)
-plt.imshow(np.flip(image_data, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4)
-plt.gca().add_patch(circle)
-#plt.imshow(image_data-corrected[bleed_size:imsize+bleed_size, bleed_size:imsize+bleed_size], origin='lower')
-plt.title("Image")
-circle= plt.Circle((crpix1+bleed_size,crpix2+bleed_size), rsun, edgecolor='red', facecolor='none', linewidth=2)
-plt.subplot(1,2,2)
-plt.imshow(np.flip(corrected, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4)
-plt.gca().add_patch(circle)
-plt.title("Distortion corrected")
-plt.show()
+if SAVE: save_fits(np.flip(corrected, axis=(0,1)), os.path.basename(image))
+    
+
+if VISUALIZE:
+    #Optional visualization
+    plt.figure()
+    circle= plt.Circle((crpix1,crpix2), rsun, edgecolor='red', facecolor='none', linewidth=2)
+    plt.subplot(1,2,1)
+    plt.imshow(np.flip(image_data, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4)
+    plt.gca().add_patch(circle)
+    #plt.imshow(image_data-corrected[bleed_size:imsize+bleed_size, bleed_size:imsize+bleed_size], origin='lower')
+    plt.title("Image")
+    circle= plt.Circle((crpix1+bleed_size,crpix2+bleed_size), rsun, edgecolor='red', facecolor='none', linewidth=2)
+    plt.subplot(1,2,2)
+    plt.imshow(np.flip(corrected, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4)
+    plt.gca().add_patch(circle)
+    plt.title("Distortion corrected")
+    plt.show()
 
     
