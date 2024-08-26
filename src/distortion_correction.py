@@ -19,6 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from astropy.io import fits
+from datetime import date
 
 def make_linear_grad(distortion_profile, imsize):
     '''
@@ -81,19 +82,35 @@ def make_radial_grad(gradient_1d, imsize):
     radial_gradient = gradient_1d[distance_normalized.astype(int)]
     return(radial_gradient)
 
+def prep_header(filename):
+    header=fits.Header()
+    header['FILENAME']=(filename, "Distortion Correction Matrix")
+    header['VERSION']=('v1.0', 'Version name for the Image')
+    header['MFG_DATE']=(str(date.today()), 'Manufacturing date for the FITS file')
+    header['COMMENT']=("Distortion Correction Matrix")
+    return (header)
+
+def save_fits(array, name):
+    sav= os.path.join(project_path, 'data/external/', name)
+    sav_hdu= fits.PrimaryHDU(array, header=prep_header(name))
+    sav_hdu.writeto(sav, overwrite=True)
+    
 
 if __name__=='__main__':
+    SAVE=True
     project_path= os.path.expanduser('~/Dropbox/Janmejoy_SUIT_Dropbox/distortion/distortion_correction_project/')
     #image to be corrected
-    image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T22.58.07.105_0972NB03.fits')
+    image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T23.15.14.966_0971NB05.fits')
     hdu= fits.open(image)[0]
     imsize= hdu.header['NAXIS1']
     if imsize==4096:
         bleed_size=300  # +- 300 px bleed size around the image
         px= 0.012 #pixels are 12 micron for 4k images
+        typ='4k'
     elif imsize==2048:
         bleed_size=150  # +- 150 px bleed size around the image
         px=0.024 ##pixels are 24 micron for 2k images
+        typ='2k'
     else:
         print("Invalid image size:", imsize)
     #suncenter values
@@ -116,17 +133,27 @@ if __name__=='__main__':
     
     # Making radial gradients from linear profiles
     #The xx and yy help to flip the direction of the distortion along an axis.
+    #Distortion values are in mm
     xx,yy= np.meshgrid(np.linspace(-1,1, imsize), np.linspace(-1,1, imsize))
     radial_x = make_radial_grad(linear_grad_x, imsize)*xx 
     radial_y = make_radial_grad(linear_grad_y, imsize)*yy
     
+    #Distortion matrix converted to pixels and integer values
+    radial_x_arr= np.rint(radial_x/px).astype(int)
+    radial_y_arr= np.rint(radial_y/px).astype(int)
+
+    if SAVE:
+        save_fits(radial_x_arr, f"{typ}_distortion_x_axis.fits")
+        save_fits(radial_y_arr, f"{typ}_distortion_y_axis.fits")
+
+    ### IMPLEMENTATION ###
     #making a blank matrix to put the distortion corrected values.
     corrected= np.zeros(shape=(imsize+2*bleed_size,imsize+2*bleed_size)) 
     #Distortion correction by shifting pixels
     for i in range(imsize):
         for j in range(imsize):
-            xshift=round(radial_x[i,j]/px)
-            yshift=round(radial_y[i,j]/px)
+            xshift= radial_x_arr[i,j]
+            yshift= radial_y_arr[i,j]
             corrected[bleed_size+i+yshift, bleed_size+j+xshift]= image_data[i,j]
             #This barrel distorts the image to make the sun circular.
             #change to -yshift and -xshift for inducing pincushion distortion.
