@@ -5,6 +5,29 @@ Correct distortion in SUIT images.
 This module uses Zemax generated distortion profile, makes a distortion model for SUIT 2k and 4k images and applies the correction by pixel shifting method.
 
 Distortion profile from ZEMAX is pushed with the repository.
+
+The following folder structure is to be used:
+├── data
+│   ├── external
+│   │   ├── 2k_distortion_x_axis.fits
+│   │   ├── 2k_distortion_y_axis.fits
+│   │   ├── 4k_distortion_x_axis.fits
+│   │   ├── 4k_distortion_y_axis.fits
+│   │   └── distortion_100x100.txt
+│   ├── interim
+│   ├── processed
+│   └── raw
+├── products
+├── README_files
+│   └── screenshot_2024-08-18_21-53-18.png
+├── README.md
+├── reports
+└── src
+    ├── archive
+    │   └── distortion_map_generator.py
+    ├── distortion_batch_correction.py
+    └── distortion_correction.py
+
 ## Screenshots
 
 ![Distortion correction on 2k image](./README_files/screenshot_2024-08-18_21-53-18.png)
