@@ -39,6 +39,17 @@ mkdir -p data/{raw,interim,processed,external}
 
 ![Distortion correction on 2k image](./README_files/screenshot_2024-08-18_21-53-18.png)
 
+
+## Usage/Examples
+
+### Distortion map generation
+Run `distortion_correction.py` to generate 2k and 4k distortion maps. The maps are saved in `data/external`.
+
+### Batch processing
+Use `distortion_batch_correction.py` to batch process multiple images parelelly. Raw images or symlinks should be put in `data/raw`. Processed images will be saved in `processed/`
+
+NOTE: This is a multiprocessing module, which might use all available cores based on workload.
+
 ## Authors
 
 - [@janmejoysarkar](https://github.com/janmejoysarkar)

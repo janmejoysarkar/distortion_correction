@@ -12,6 +12,9 @@ radial profile of distortion.
 distortion profile.
 -As of now, this works well with SUIT images at VELC aligned position.
 
+2024-08-30: The code is modified to generate 2k and 4k distortion profiles
+from SUIT distortion map.
+
 @author: janmejoyarch
 """
 
@@ -91,35 +94,21 @@ def prep_header(filename):
     return (header)
 
 def save_fits(array, name):
-    sav= os.path.join(project_path, 'data/external/', name)
+    save_path= os.path.join(sav, name)
     sav_hdu= fits.PrimaryHDU(array, header=prep_header(name))
-    sav_hdu.writeto(sav, overwrite=True)
+    sav_hdu.writeto(save_path, overwrite=True)
     
-
-if __name__=='__main__':
-    SAVE=True
-    project_path= os.path.expanduser('~/Dropbox/Janmejoy_SUIT_Dropbox/distortion/distortion_correction_project/')
-    #image to be corrected
-    image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T23.15.14.966_0971NB05.fits')
-    hdu= fits.open(image)[0]
-    imsize= hdu.header['NAXIS1']
+def make_distortion(imsize, SAVE):
     if imsize==4096:
-        bleed_size=300  # +- 300 px bleed size around the image
         px= 0.012 #pixels are 12 micron for 4k images
         typ='4k'
     elif imsize==2048:
-        bleed_size=150  # +- 150 px bleed size around the image
         px=0.024 ##pixels are 24 micron for 2k images
         typ='2k'
     else:
         print("Invalid image size:", imsize)
-    #suncenter values
-    crpix1, crpix2, rsun= hdu.header['CRPIX1'], hdu.header['CRPIX2'], hdu.header['R_SUN']
-    image_data= np.flip((hdu.data), axis=(0,1))
-    
     #read ZEMAX distortion profile and convert the table to a 2D array
     file= os.path.join(project_path, 'data/external/distortion_100x100.txt')
-    index= np.loadtxt(file, skiprows=1, usecols=(0,1))
     predicted_pos= np.loadtxt(file, skiprows=1, usecols=(5,6))
     real_pos= np.loadtxt(file, skiprows=1, usecols=(7,8))
     shift_pos= real_pos-predicted_pos #to be subtracted from real_positions
@@ -141,15 +130,26 @@ if __name__=='__main__':
     #Distortion matrix converted to pixels and integer values
     radial_x_arr= np.rint(radial_x/px).astype(int)
     radial_y_arr= np.rint(radial_y/px).astype(int)
-
     if SAVE:
         save_fits(radial_x_arr, f"{typ}_distortion_x_axis.fits")
         save_fits(radial_y_arr, f"{typ}_distortion_y_axis.fits")
+    return(radial_x_arr, radial_y_arr)
 
+def test_case(image):
+    hdu= fits.open(image)[0]
+    imsize= hdu.header['NAXIS1']
     ### IMPLEMENTATION ###
+    if imsize==4096:
+        bleed_size=300  # +- 300 px bleed size around the image
+    elif imsize==2048:
+        bleed_size=150  # +- 150 px bleed size around the image
+    radial_x_arr, radial_y_arr= make_distortion(imsize, SAVE=True)
     #making a blank matrix to put the distortion corrected values.
     corrected= np.zeros(shape=(imsize+2*bleed_size,imsize+2*bleed_size)) 
     #Distortion correction by shifting pixels
+    #suncenter values
+    crpix1, crpix2, rsun= hdu.header['CRPIX1'], hdu.header['CRPIX2'], hdu.header['R_SUN']
+    image_data= np.flip((hdu.data), axis=(0,1))
     for i in range(imsize):
         for j in range(imsize):
             xshift= radial_x_arr[i,j]
@@ -157,7 +157,6 @@ if __name__=='__main__':
             corrected[bleed_size+i+yshift, bleed_size+j+xshift]= image_data[i,j]
             #This barrel distorts the image to make the sun circular.
             #change to -yshift and -xshift for inducing pincushion distortion.
-    
     #Optional visualization
     plt.figure()
     circle= plt.Circle((crpix1,crpix2), rsun, edgecolor='red', facecolor='none', linewidth=2)
@@ -172,3 +171,14 @@ if __name__=='__main__':
     plt.gca().add_patch(circle)
     plt.title("Distortion corrected")
     plt.show()
+
+
+if __name__=='__main__':
+    project_path= os.path.expanduser('~/Dropbox/Janmejoy_SUIT_Dropbox/distortion/distortion_correction_project/')
+    sav= os.path.join(project_path, 'data/external/')
+    radial_x_arr_4k, radial_y_arr_4k= make_distortion(4096, SAVE=True) #make 4k dist profile
+    radial_x_arr_2k, radial_y_arr_2k= make_distortion(2048, SAVE=True) #make 2k dist profile
+    
+    #Uncomment to test on an image
+    #test_image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T23.15.14.966_0971NB05.fits')
+    #test_case(test_image)
