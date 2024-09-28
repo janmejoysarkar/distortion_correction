@@ -12,8 +12,10 @@ radial profile of distortion.
 distortion profile.
 -As of now, this works well with SUIT images at VELC aligned position.
 
+
 2024-08-30: The code is modified to generate 2k and 4k distortion profiles
 from SUIT distortion map.
+2024-09-29: Added custom colormap for representation in paper.
 
 @author: janmejoyarch
 """
@@ -23,6 +25,9 @@ import matplotlib.pyplot as plt
 import os
 from astropy.io import fits
 from datetime import date
+import sys
+sys.path.append(os.path.abspath('/home/janmejoyarch/Dropbox/Janmejoy_SUIT_Dropbox/SUIT_publicity/colormap_project/src'))
+from colormap import filterColor
 
 def make_linear_grad(distortion_profile, imsize):
     '''
@@ -158,27 +163,31 @@ def test_case(image):
             #This barrel distorts the image to make the sun circular.
             #change to -yshift and -xshift for inducing pincushion distortion.
     #Optional visualization
-    plt.figure()
+    plt.figure(figsize=(9, 4))
     circle= plt.Circle((crpix1,crpix2), rsun, edgecolor='red', facecolor='none', linewidth=2)
     plt.subplot(1,2,1)
-    plt.imshow(np.flip(image_data, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4)
+    plt.imshow(np.flip(image_data, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4, cmap= filterColor[ftr_name])
     plt.gca().add_patch(circle)
     #plt.imshow(image_data-corrected[bleed_size:imsize+bleed_size, bleed_size:imsize+bleed_size], origin='lower')
-    plt.title("Image")
+    plt.tick_params(axis='both', which='major', labelsize=10)
+    plt.title("Image", fontsize=12)
+    
     circle= plt.Circle((crpix1+bleed_size,crpix2+bleed_size), rsun, edgecolor='red', facecolor='none', linewidth=2)
     plt.subplot(1,2,2)
-    plt.imshow(np.flip(corrected, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4)
+    plt.imshow(np.flip(corrected, axis=(0,1)), origin='lower', vmin= 0, vmax= 3.5e4, cmap= filterColor[ftr_name])
     plt.gca().add_patch(circle)
-    plt.title("Distortion corrected")
+    plt.title("Distortion corrected", fontsize=12)
+    plt.tick_params(axis='both', which='major', labelsize=10)
     plt.show()
 
 
 if __name__=='__main__':
     project_path= os.path.expanduser('~/Dropbox/Janmejoy_SUIT_Dropbox/distortion/distortion_correction_project/')
     sav= os.path.join(project_path, 'data/external/')
-    radial_x_arr_4k, radial_y_arr_4k= make_distortion(4096, SAVE=True) #make 4k dist profile
-    radial_x_arr_2k, radial_y_arr_2k= make_distortion(2048, SAVE=True) #make 2k dist profile
+    radial_x_arr_4k, radial_y_arr_4k= make_distortion(4096, SAVE=False) #make 4k dist profile
+    radial_x_arr_2k, radial_y_arr_2k= make_distortion(2048, SAVE=False) #make 2k dist profile
     
     #Uncomment to test on an image
-    #test_image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T23.15.14.966_0971NB05.fits')
-    #test_case(test_image)
+    ftr_name="NB05"
+    test_image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T23.15.14.966_0971NB05.fits')
+    test_case(test_image)
