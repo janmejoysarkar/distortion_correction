@@ -4,6 +4,10 @@
 Created on Mon Aug 26 17:32:18 2024
 
 @author: janmejoyarch
+
+- To perform batch correction for distortion using generated
+distortion profile.
+
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -59,6 +63,8 @@ def run(image):
             corrected[bleed_size+i+yshift, bleed_size+j+xshift]= image_data[i,j]
             #This barrel distorts the image to make the sun circular.
             #change to -yshift and -xshift for inducing pincushion distortion.
+    #Removes the bleed pixels. Crops to initial size.
+    corrected=corrected[bleed_size:-bleed_size, bleed_size:-bleed_size]
     if SAVE: save_fits(np.flip(corrected, axis=(0,1)), HEADER, os.path.basename(image))
     if VISUALIZE: visualize(HEADER, image_data, corrected, bleed_size)
 

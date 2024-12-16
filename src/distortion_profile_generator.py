@@ -180,5 +180,5 @@ if __name__=='__main__':
     radial_x_arr_2k, radial_y_arr_2k= make_distortion(2048, SAVE=True) #make 2k dist profile
     
     #Uncomment to test on an image
-    #test_image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T23.15.14.966_0971NB05.fits')
-    #test_case(test_image)
+    test_image= os.path.join(project_path, 'data/raw/SUT_T24_0725_000377_Lev1.0_2024-05-15T23.13.56.502_0971NB04.fits')
+    test_case(test_image)
