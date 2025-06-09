@@ -6,6 +6,10 @@ This module uses Zemax generated distortion profile, makes a distortion model fo
 
 Distortion profile from ZEMAX is pushed with the repository.
 
+## Update
+- `distortion_batch_correction.py` was the previous module which corrected distortion by replacing pixels.
+- `distortion_batch_correction_interpolation.py` uses interpolation in the `cv2.remap()` function for better correction.
+
 ## Usage
 Prepare or follow this folder structure:
 ```
@@ -46,9 +50,10 @@ mkdir -p data/{raw,interim,processed,external}
 Run `distortion_correction.py` to generate 2k and 4k distortion maps. The maps are saved in `data/external`.
 
 ### Batch processing
-Use `distortion_batch_correction.py` to batch process multiple images parelelly. Raw images or symlinks should be put in `data/raw`. Processed images will be saved in `processed/`
+Use `distortion_batch_correction_interpolation.py` to batch process multiple images paralelly. Raw images or symlinks should be put in `data/raw`. Processed images will be saved in `processed/`
 
 NOTE: This is a multiprocessing module, which might use all available cores based on workload.
+
 
 ## Authors
 
