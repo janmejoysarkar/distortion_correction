@@ -69,10 +69,10 @@ def run(image):
     if VISUALIZE: visualize(HEADER, image_data, corrected, bleed_size)
 
 if __name__=="__main__":      
-    project_path= os.path.expanduser('~/Dropbox/Janmejoy_SUIT_Dropbox/distortion/distortion_correction_project/')
+    project_path= os.path.abspath('..')
     image_list= glob.glob(os.path.join(project_path, 'data/raw/*.fits'))
-    SAVE=True
-    VISUALIZE=False
+    SAVE=False
+    VISUALIZE=True
     print("Distortion correction:")
     with ProcessPoolExecutor() as executor:
         executor.map(run, image_list)
